@@ -3,10 +3,11 @@ import threading
 from time import time, sleep
 from matplotlib import pyplot as plt
 import logging
+import numpy
 logging.basicConfig(level=logging.ERROR)
 
 
-SECONDS_TO_RUN_TRIAL = 5
+SECONDS_TO_RUN_TRIAL = 10
 DEBUG_FLAG = 1
 
 
@@ -23,7 +24,22 @@ def send_test_streams(outlet_name, stop_event):
         sleep(.2)
 
 
-def test_lags(inlet_name: str, seconds: int = None):
+def send_2_test_streams(outlet_names, stop_event):
+    # Send an LSL stream called outlet_name
+    info = pylsl.StreamInfo(outlet_names[0], 'Markers', 1, 0, 'string', 'test1')
+    outlet = pylsl.StreamOutlet(info)
+    info = pylsl.StreamInfo(outlet_names[1], 'Markers', 1, 0, 'string', 'test2')
+    outlet1 = pylsl.StreamOutlet(info)
+    print('Sending 2 channel test markers...')
+
+    while not stop_event.is_set():
+        outlet.push_sample(['Activated'])
+        sleep(.4)
+        outlet1.push_sample(['Relaxed'])
+        sleep(.2)
+
+
+def test_lags(inlet_name: str, seconds: int = None, n_samples: int = 1000):
     if DEBUG_FLAG:
         print("Opening LSL output stream...")
         stop_event = threading.Event()
@@ -33,12 +49,14 @@ def test_lags(inlet_name: str, seconds: int = None):
     stream = pylsl.resolve_stream('name', inlet_name)[0]
     inlet = pylsl.StreamInlet(stream)
     lags = []
+    i = 0
     print("Recording lags...")
     end = time() + (seconds if seconds is not None else float('inf'))
-    while time() < end:
+    while time() < end and i < n_samples:
         sample, timestamp = inlet.pull_sample()
         if sample:
             lags.append(pylsl.local_clock() - timestamp)
+        i += 1
 
     if DEBUG_FLAG:
         # Signal the sending thread to stop and wait for it to finish
@@ -47,12 +65,11 @@ def test_lags(inlet_name: str, seconds: int = None):
 
     return lags
 
-def lag_get_info(stream_name: str):
-    lags = test_lags(stream_name, SECONDS_TO_RUN_TRIAL)
+def lags_get_info(lags):
     if lags:
         print('Mean lag: ', sum(lags) / len(lags))
         # TODO: FIX THIS random equation
-        print('Standard deviation: ', sum((x - sum(lags) / len(lags)) ** 2 for x in lags) / len(lags))
+        print('Standard deviation: ', numpy.std(lags))
 
         # Plotting
         plt.figure(figsize=(10, 6))
@@ -66,8 +83,39 @@ def lag_get_info(stream_name: str):
         print("No lags calculated, possibly no data received.")
 
 
-def io_get_lag(inp_stream: str, out_stream: str):
+def io_get_lag(inp_stream: str, out_stream: str, seconds: int = None, n_samples: int = 1000):
+    if DEBUG_FLAG:
+        print("Opening LSL output streams for testing...")
+        stop_event = threading.Event()
+        send_2_test_streams_thread = threading.Thread(target=send_2_test_streams, args=([inp_stream, out_stream], stop_event))
+        send_2_test_streams_thread.start()
+
+    print("Opening LSL output streams...")
+    inp_stream = pylsl.StreamInlet(pylsl.resolve_stream('name', inp_stream)[0])
+    out_stream = pylsl.StreamInlet(pylsl.resolve_stream('name', out_stream)[0])
+    inps = []
+    outs = []
+    print("Recording lags...")
+    end = time() + (seconds if seconds is not None else float('inf'))
+    i = 0
+    while time() < end and i < n_samples:
+        sample, timestamp = inp_stream.pull_sample()
+        if sample:
+            inps.append(timestamp)
+        sample, timestamp = out_stream.pull_sample()
+        if sample:
+            outs.append(timestamp)
+        i += 1
+
+    lags = [out - inp for inp, out in zip(inps, outs)]
+
+    if DEBUG_FLAG:
+        # Signal the sending thread to stop and wait for it to finish
+        stop_event.set()
+        send_2_test_streams_thread.join()
+
+    return lags
 
 if __name__ == '__main__':
-    lag_get_info('experimentdisplay')
+    lags_get_info(io_get_lag('test_inp_stream', "test_out_stream", seconds=SECONDS_TO_RUN_TRIAL, n_samples=100))
 
