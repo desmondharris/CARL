@@ -66,7 +66,7 @@ class LSLApp:
 
     def launch_experiment(self):
         # Send warmup markers
-        for _ in range(5):
+        for _ in range(10):
             self.outlet.push_sample(['warmup'])
             sleep(1)
         # Create LSL outstream
