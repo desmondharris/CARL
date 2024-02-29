@@ -63,7 +63,12 @@ class LSLApp:
                           source_id='experimentdisplay')
         self.outlet = StreamOutlet(info)
 
+
     def launch_experiment(self):
+        # Send warmup markers
+        for _ in range(5):
+            self.outlet.push_sample(['warmup'])
+            sleep(1)
         # Create LSL outstream
         self.outlet.push_sample(['calib-begin'])
         for _ in range(N_SAMPLES):
