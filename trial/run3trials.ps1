@@ -27,3 +27,4 @@ Start-Process powershell -WindowStyle maximized -ArgumentList  "cd C:\Users\desm
 Read-Host -Prompt "Press any key to launch next run (don't forget to record to a new .xdf!)"
 echo "Collecting second run..."
 Start-Process powershell.exe -ArgumentList  "cd C:\Users\desmo\Desktop\CARL\trial; python display_trial.py BI"
+echo "Experiment complete!"
