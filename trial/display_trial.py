@@ -1,23 +1,28 @@
 import tkinter as tk
 from tkinter import font
-from pylsl import StreamInlet, StreamOutlet, StreamInfo, resolve_stream
+from pylsl import StreamOutlet, StreamInfo
 import threading
-from time import sleep, time
+from time import sleep
 import sys
+import random
 
 DEBUG = 0
 TK_FNT_SIZE = 32
 TRIAL_TYPES = ["UNI_RIGHT", "UNI_LEFT", "BI"]
 TRIAL_TYPE = sys.argv[1]
+if TRIAL_TYPE not in TRIAL_TYPES:
+    raise ValueError(f"TRIAL_TYPE must be one of {TRIAL_TYPES}")
 OUTPUT_STREAM_NAME = "TRIAL_OUTP_" + TRIAL_TYPE
 TIME_PER_LABEL = 3.5
-N_SAMPLES = 2
+N_SAMPLES = 30
+if N_SAMPLES%2 != 0:
+    raise ValueError("N_SAMPLES must be even")
+
 LABELS = {
     "UNI_RIGHT": ["RR", "RL"],
     "UNI_LEFT": ["LR", "LL"],
     "BI": ["BR", "BL"]
 }
-
 
 
 def send_test_streams(outlet_name):
@@ -46,13 +51,13 @@ class LSLApp:
         self.display_frame = tk.Frame(self.root)
         self.display_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.r_frm = tk.Frame(self.display_frame)
-        tk.Label(self.r_frm, text="\n\nRight Hand:\n\n",font = font.Font(family="Helvetica", size=TK_FNT_SIZE)).pack()
-        self.right_hand_label = tk.Label(self.r_frm, text="RELAX", font = font.Font(family="Helvetica", size=TK_FNT_SIZE))
+        tk.Label(self.r_frm, text="\n\nRight Hand:\n\n",font=font.Font(family="Helvetica", size=TK_FNT_SIZE)).pack()
+        self.right_hand_label = tk.Label(self.r_frm, text="RELAX", font=font.Font(family="Helvetica", size=TK_FNT_SIZE))
         self.right_hand_label.pack()
         self.r_frm.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
         self.l_frm = tk.Frame(self.display_frame)
-        tk.Label(self.l_frm, text="\n\nLeft Hand:\n\n",font = font.Font(family="Helvetica", size=TK_FNT_SIZE)).pack()
-        self.left_hand_label = tk.Label(self.l_frm, text="RELAX", font = font.Font(family="Helvetica", size=TK_FNT_SIZE))
+        tk.Label(self.l_frm, text="\n\nLeft Hand:\n\n",font=font.Font(family="Helvetica", size=TK_FNT_SIZE)).pack()
+        self.left_hand_label = tk.Label(self.l_frm, text="RELAX", font=font.Font(family="Helvetica", size=TK_FNT_SIZE))
         self.left_hand_label.pack()
         self.l_frm.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.display_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -63,19 +68,31 @@ class LSLApp:
                           source_id='experimentdisplay')
         self.outlet = StreamOutlet(info)
 
-
     def launch_experiment(self):
-        # Send warmup markers
-        for _ in range(10):
-            self.outlet.push_sample(['warmup'])
-            sleep(1)
+        if not DEBUG:
+            # Send warmup markers
+            for _ in range(10):
+                self.outlet.push_sample(['warmup'])
+                sleep(1)
         # Create LSL outstream
         self.outlet.push_sample(['calib-begin'])
+
+        # Create list of n_labels; half of each label
+        lbls = [LABELS[TRIAL_TYPE][0]]*(int(N_SAMPLES/2))
+        [lbls.append(LABELS[TRIAL_TYPE][1]) for _ in range(int(N_SAMPLES/2))]
+        random.shuffle(lbls)
+
         for _ in range(N_SAMPLES):
-            choice = int(time() * 10) % 2
+            # Remove last label
+            choice = lbls.pop()
+            # Shuffle labels
+            random.shuffle(lbls)
+            if DEBUG:
+                print(choice)
+                print(lbls, end="\n\n")
 
             # hand is first symbol, direction is second symbol
-            hand, direction = LABELS[TRIAL_TYPE][choice][0], LABELS[TRIAL_TYPE][choice][1]
+            hand, direction = choice[0], choice[1]
             # CHANGE SYMBOLS HERE
             if hand == "R":
                 self.right_hand_label.config(text="==>" if direction == "R" else "<==")
@@ -87,13 +104,12 @@ class LSLApp:
                 dir = " ==> " if direction == "R" else " <== "
                 self.left_hand_label.config(text=dir)
                 self.right_hand_label.config(text=dir)
-            self.outlet.push_sample([LABELS[TRIAL_TYPE][choice]])
+            self.outlet.push_sample([choice])
             sleep(TIME_PER_LABEL)
         self.outlet.push_sample(['calib-end'])
 
         # Close tkinter window
         self.root.destroy()
-
 
     def start(self):
         # Launch the experiment
@@ -108,8 +124,5 @@ class LSLApp:
         print("Exiting...")
 
 
-
 app = LSLApp()
-
 app.start()
-
