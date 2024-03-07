@@ -6,7 +6,7 @@ from time import sleep
 import sys
 import random
 
-DEBUG = 1
+DEBUG = 0
 TK_FNT_SIZE = 32
 TRIAL_TYPES = ["UNI_RIGHT", "UNI_LEFT", "BI-ONEHAND", "BI-TWOHAND"]
 TRIAL_TYPE = sys.argv[1]
