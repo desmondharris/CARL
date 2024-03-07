@@ -6,22 +6,24 @@ from time import sleep
 import sys
 import random
 
-DEBUG = 0
+DEBUG = 1
 TK_FNT_SIZE = 32
-TRIAL_TYPES = ["UNI_RIGHT", "UNI_LEFT", "BI"]
+TRIAL_TYPES = ["UNI_RIGHT", "UNI_LEFT", "BI-ONEHAND", "BI-TWOHAND"]
 TRIAL_TYPE = sys.argv[1]
 if TRIAL_TYPE not in TRIAL_TYPES:
     raise ValueError(f"TRIAL_TYPE must be one of {TRIAL_TYPES}")
 OUTPUT_STREAM_NAME = "TRIAL_OUTP_" + TRIAL_TYPE
 TIME_PER_LABEL = 3.5
-N_SAMPLES = 6
+N_SAMPLES = 120
+PAUSE_EVERY = N_SAMPLES/4
 if N_SAMPLES % 2 != 0:
     raise ValueError("N_SAMPLES must be even")
 
 LABELS = {
     "UNI_RIGHT": ["RR", "RL"],
     "UNI_LEFT": ["LR", "LL"],
-    "BI": ["BR", "BL"]
+    "BI-ONEHAND": ["RR", "LL"],
+    "BI-TWOHAND": ["BR", "BL"]
 }
 
 
@@ -42,11 +44,12 @@ class LSLApp:
     def __init__(self):
         self.root = tk.Tk()
         if not DEBUG:
+            pass
             self.root.attributes("-fullscreen", True)
         self.root.title("LSL Application")
         # Set a default window size (optional)
         self.root.geometry('800x600')
-        self.root.bind('<Escape>', lambda e: self.root.quit())
+        self.root.bind('<Escape>', lambda e: self.root.iconify())
 
 
         self.display_frame = tk.Frame(self.root)
@@ -66,7 +69,8 @@ class LSLApp:
 
         # bottom widget
         self.bottom_frame = tk.Frame(self.root)
-        self.bottom_frame.pack(side=tk.TOP, fill=tk.X, pady=(40,10),expand=True)
+        self.bottom_frame.pack(side=tk.TOP, fill=tk.X, pady=(40, 10), expand=True)
+
         # Progress Bar setup
         self.progress = ttk.Progressbar(self.bottom_frame, orient="horizontal",
                                         length=800, mode="determinate")
@@ -74,9 +78,8 @@ class LSLApp:
         self.progress.pack(side=tk.TOP, fill=tk.X, expand=False, padx=85)
 
         # Show next prompt
-        self.next_prompt = tk.Label(self.bottom_frame, text="\n\nNEXT: ", font=font.Font(family="Helvetica", size=TK_FNT_SIZE))
+        self.next_prompt = tk.Label(self.bottom_frame, text="", font=font.Font(family="Helvetica", size=TK_FNT_SIZE))
         self.next_prompt.pack(side=tk.TOP, fill=tk.X, expand=False, padx=10, pady=(0, 10))  # Adjusted padding for proximity
-
 
         # Create LSL outstream
         info = StreamInfo(name=OUTPUT_STREAM_NAME, type='Markers', channel_count=1, nominal_srate=0,
@@ -93,23 +96,11 @@ class LSLApp:
         # Create LSL outstream
         self.outlet.push_sample(['calib-begin'])
 
-        if TRIAL_TYPE == "BI":
-            lbls = [LABELS[TRIAL_TYPE][0][1]] * (int(N_SAMPLES / 2))
-            [lbls.append(LABELS[TRIAL_TYPE][1][1]) for _ in range(int(N_SAMPLES / 2))]
-            sides = lbls.copy()
-            for n in range(len(lbls)):
-                random.shuffle(sides)
-                lbls[n] = lbls[n][0] + sides[n]
+        lbls = [LABELS[TRIAL_TYPE][0]] * (int(N_SAMPLES / 2))
+        [lbls.append(LABELS[TRIAL_TYPE][1]) for _ in range(int(N_SAMPLES / 2))]
+        random.shuffle(lbls)
 
-            random.shuffle(lbls)
-        else:
-            # Create list of n_labels; half of each label
-            lbls = [LABELS[TRIAL_TYPE][0]]*(int(N_SAMPLES/2))
-            [lbls.append(LABELS[TRIAL_TYPE][1]) for _ in range(int(N_SAMPLES/2))]
-            random.shuffle(lbls)
-        dir_dict = {"R": "Right", "L": "Left"}
-
-        for _ in range(N_SAMPLES):
+        for n in range(N_SAMPLES):
             # Remove last label
             choice = lbls.pop()
             # Shuffle labels
@@ -117,33 +108,43 @@ class LSLApp:
             if DEBUG:
                 print(choice)
                 print(lbls, end="\n\n")
-
-            # hand is first symbol, direction is second symbol
-            hand, direction = choice[0], choice[1]
-            # CHANGE SYMBOLS HERE
-            if hand == "R":
-                self.right_hand_label.config(text="==>" if direction == "R" else "<==")
-                self.left_hand_label.config(text="RELAX")
-            elif hand == "L":
-                self.left_hand_label.config(text="==>" if direction == "R" else "<==")
-                self.right_hand_label.config(text="RELAX")
-            elif hand == "B":
-                dir = " ==> " if direction == "R" else " <== "
-                self.left_hand_label.config(text=dir)
-                self.right_hand_label.config(text=dir)
-            self.outlet.push_sample([choice])
-            if len(lbls) > 0:
-                self.next_prompt.config(text=f"\n\nNEXT: {dir_dict[lbls[-1][0]]} hand: {dir_dict[lbls[-1][1]]} turn")
+            if n % PAUSE_EVERY == 0 and n != 0:
+                self.right_hand_label.config(text="PAUSE")
+                self.left_hand_label.config(text="PAUSE")
+                granularity = 0.005
+                for t in range(int(10.0 / .005)):  # Multiply by 10 for a 0.1 second granularity
+                    self.update_progress_bar(((granularity*t)/10)*TIME_PER_LABEL)  # Update progress bar value
+                    sleep(0.005)  # Wait for 0.1 second before updating again
             else:
-                self.next_prompt.config(text="\n\nNEXT: END")
-            for t in range(int(TIME_PER_LABEL * 200)):  # Multiply by 10 for a 0.1 second granularity
-                self.update_progress_bar(t / 200)  # Update progress bar value
-                sleep(0.005)  # Wait for 0.1 second before updating again
-            # Brief pause
-            self.right_hand_label.config(text="")
-            self.left_hand_label.config(text="")
-            self.outlet.push_sample(['Pause'])
-            sleep(.8)
+                # hand is first symbol, direction is second symbol
+                hand, direction = choice[0], choice[1]
+                # CHANGE SYMBOLS HERE
+                if hand == "R":
+                    self.right_hand_label.config(text="==>" if direction == "R" else "<==")
+                    self.left_hand_label.config(text="RELAX")
+                elif hand == "L":
+                    self.left_hand_label.config(text="==>" if direction == "R" else "<==")
+                    self.right_hand_label.config(text="RELAX")
+                elif hand == "B":
+                    dir = " ==> " if direction == "R" else " <== "
+                    self.left_hand_label.config(text=dir)
+                    self.right_hand_label.config(text=dir)
+                self.outlet.push_sample([choice])
+                for t in range(int(TIME_PER_LABEL * 200)):  # Multiply by 10 for a 0.1 second granularity
+                    self.update_progress_bar(t / 200)  # Update progress bar value
+                    sleep(0.005)  # Wait for 0.1 second before updating again
+                # Brief pause
+                self.right_hand_label.config(text="")
+                self.left_hand_label.config(text="")
+                # if len(lbls) > 0:
+                #     if (n+1)%PAUSE_EVERY == 0:
+                #         self.next_prompt.config(text="NEXT:  PAUSE")
+                #     else:
+                #         self.next_prompt.config(text=f"\n\nNEXT: {dir_dict[lbls[-1][0]]} hand: {dir_dict[lbls[-1][1]]} turn")
+                # else:
+                #     self.next_prompt.config(text="\n\nNEXT: END")
+                sleep(1)
+                self.next_prompt.config(text="")
         self.outlet.push_sample(['calib-end'])
 
         # Close tkinter window
