@@ -6,15 +6,10 @@ from time import sleep
 import sys
 import random
 
-DEBUG = 0
+DEBUG = 1
 TK_FNT_SIZE = 32
-TRIAL_TYPES = ["UNI_RIGHT", "UNI_LEFT", "BI-ONEHAND", "BI-TWOHAND"]
-TRIAL_TYPE = sys.argv[1]
-if TRIAL_TYPE not in TRIAL_TYPES:
-    raise ValueError(f"TRIAL_TYPE must be one of {TRIAL_TYPES}")
-OUTPUT_STREAM_NAME = "TRIAL_OUTP_" + TRIAL_TYPE
 TIME_PER_LABEL = 3.5
-N_SAMPLES = 120
+N_SAMPLES = 4
 PAUSE_EVERY = N_SAMPLES/4
 if N_SAMPLES % 2 != 0:
     raise ValueError("N_SAMPLES must be even")
@@ -41,7 +36,7 @@ def send_test_streams(outlet_name):
 
 
 class LSLApp:
-    def __init__(self):
+    def __init__(self, t_type: str, out_name: str):
         self.root = tk.Tk()
         if not DEBUG:
             pass
@@ -50,7 +45,6 @@ class LSLApp:
         # Set a default window size (optional)
         self.root.geometry('800x600')
         self.root.bind('<Escape>', lambda e: self.root.iconify())
-
 
         self.display_frame = tk.Frame(self.root)
 
@@ -81,8 +75,13 @@ class LSLApp:
         self.next_prompt = tk.Label(self.bottom_frame, text="", font=font.Font(family="Helvetica", size=TK_FNT_SIZE))
         self.next_prompt.pack(side=tk.TOP, fill=tk.X, expand=False, padx=10, pady=(0, 10))  # Adjusted padding for proximity
 
+        TRIAL_TYPES = ["UNI_RIGHT", "UNI_LEFT", "BI-ONEHAND", "BI-TWOHAND"]
+        self.trial_type = t_type
+        if self.trial_type not in TRIAL_TYPES:
+            raise ValueError(f"trial_type must be one of {TRIAL_TYPES}")
+
         # Create LSL outstream
-        info = StreamInfo(name=OUTPUT_STREAM_NAME, type='Markers', channel_count=1, nominal_srate=0,
+        info = StreamInfo(name=out_name, type='Markers', channel_count=1, nominal_srate=0,
                           channel_format='string',
                           source_id='experimentdisplay')
         self.outlet = StreamOutlet(info)
@@ -96,8 +95,8 @@ class LSLApp:
         # Create LSL outstream
         self.outlet.push_sample(['calib-begin'])
 
-        lbls = [LABELS[TRIAL_TYPE][0]] * (int(N_SAMPLES / 2))
-        [lbls.append(LABELS[TRIAL_TYPE][1]) for _ in range(int(N_SAMPLES / 2))]
+        lbls = [LABELS[self.trial_type][0]] * (int(N_SAMPLES / 2))
+        [lbls.append(LABELS[self.trial_type][1]) for _ in range(int(N_SAMPLES / 2))]
         random.shuffle(lbls)
 
         for n in range(N_SAMPLES):
@@ -108,7 +107,7 @@ class LSLApp:
             if DEBUG:
                 print(choice)
                 print(lbls, end="\n\n")
-            if n % PAUSE_EVERY == 0 and n != 0:
+            if n % PAUSE_EVERY == 0 and n != 0 and n != N_SAMPLES - 1 and not DEBUG:
                 self.right_hand_label.config(text="PAUSE")
                 self.left_hand_label.config(text="PAUSE")
                 granularity = 0.005
@@ -126,9 +125,9 @@ class LSLApp:
                     self.left_hand_label.config(text="==>" if direction == "R" else "<==")
                     self.right_hand_label.config(text="RELAX")
                 elif hand == "B":
-                    dir = " ==> " if direction == "R" else " <== "
-                    self.left_hand_label.config(text=dir)
-                    self.right_hand_label.config(text=dir)
+                    direction = " ==> " if direction == "R" else " <== "
+                    self.left_hand_label.config(text=direction)
+                    self.right_hand_label.config(text=direction)
                 self.outlet.push_sample([choice])
                 for t in range(int(TIME_PER_LABEL * 200)):  # Multiply by 10 for a 0.1 second granularity
                     self.update_progress_bar(t / 200)  # Update progress bar value
@@ -148,7 +147,7 @@ class LSLApp:
         self.outlet.push_sample(['calib-end'])
 
         # Close tkinter window
-        self.root.destroy()
+        #self.root.destroy()
 
     def update_progress_bar(self, value):
         """Update the progress bar value."""
@@ -167,6 +166,5 @@ class LSLApp:
         # Clean up
         print("Exiting...")
 
-
-app = LSLApp()
-app.start()
+if __name__ == "main":
+    app = None

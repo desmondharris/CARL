@@ -22,6 +22,22 @@ def send_test_streams(outlet_name, stop_event):
         outlet.push_sample(['Relaxed'])
         sleep(.2)
 
+
+def send_2_test_streams(outlet_names, stop_event):
+    # Send an LSL stream called outlet_name
+    info = pylsl.StreamInfo(outlet_names[0], 'Markers', 1, 0, 'string', 'test1')
+    outlet = pylsl.StreamOutlet(info)
+    info = pylsl.StreamInfo(outlet_names[1], 'Markers', 1, 0, 'string', 'test2')
+    outlet1 = pylsl.StreamOutlet(info)
+    print('Sending test markers...')
+
+    while not stop_event.is_set():
+        outlet.push_sample(['Activated'])
+        sleep(.4)
+        outlet1.push_sample(['Relaxed'])
+        sleep(.2)
+
+
 def test_lags(inlet_name: str, seconds: int = None):
     print("Opening LSL output stream...")
     stop_event = threading.Event()

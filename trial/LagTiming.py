@@ -4,12 +4,11 @@ from time import time, sleep
 from matplotlib import pyplot as plt
 import logging
 import numpy
-import sys
 logging.basicConfig(level=logging.ERROR)
 
 
 SECONDS_TO_RUN_TRIAL = 125
-DEBUG_FLAG = 1
+DEBUG_FLAG = 0
 
 
 def send_test_streams(outlet_name, stop_event):
@@ -69,7 +68,6 @@ def test_lags(inlet_name: str, seconds: int = None, n_samples: int = 1000):
 def lags_get_info(lags):
     if lags:
         print('Mean lag: ', sum(lags) / len(lags))
-        # TODO: FIX THIS random equation
         print('Standard deviation: ', numpy.std(lags))
 
         # Plotting

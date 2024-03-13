@@ -52,7 +52,7 @@ Write-Host "Creating virtual environment..."
 # deactivate old venv, suppress errors
 deactivate 2>$null
 
-if (Test-Path -Path "CARLvenv" ) {
+if (Test-Path -Path "CARLvenv" ) {  
     Write-Host "Virtual environment created"
 } else {
     Write-Host "Virtual environment not created"

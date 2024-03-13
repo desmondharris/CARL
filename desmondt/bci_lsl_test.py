@@ -14,7 +14,6 @@ labels = ['C', 'R']
 markers = ['Activated', 'Relaxed']
 
 matplotlib.rcParams.update({'font.size': fontsize})
-
 hFigure, ax = plt.subplots()
 ax.set_yticklabels([''])
 ax.set_xticklabels([''])
