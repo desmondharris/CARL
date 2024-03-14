@@ -114,16 +114,17 @@ def io_get_lag(inp_stream: str, out_stream: str, seconds: int = None, n_samples:
         send_2_test_streams_thread.join()
 
     return lags
-"""
-HOW TO TIME LAGS:
-The LSL stream and script can have issues if the stream is not running when the script is run.
-To test the lag between another LSL output and receiving on this machine, run 
-    test_lags(INPUT-STREAM-NAME, seconds=SECONDS_TO_RUN_TRIAL(use this to end after n seconds), n_samples=100)
-    Pass the result to lags_get_info() to get mean, stdev, and plot
-To test the lag between two LSL outputs, run
-    io_get_lag("INPUT-STREAM-NAME", seconds=SECONDS_TO_RUN_TRIAL, n_samples=100)
-    These lags can also be passed to lags_get_info() to get mean, stdev, and plot
-"""
+
 if __name__ == '__main__':
-    lags_get_info(io_get_lag('test_inp_stream', "test_out_stream", seconds=SECONDS_TO_RUN_TRIAL, n_samples=100))
+
+    # TO TIME THE LAG OF A PIPELINE
+    # - Replace first parameter with input stream name
+    # - Replace second parameter with output stream name
+    # - Uncomment line below
+    lags_get_info(io_get_lag('INLET NAME', "OUTLET NAME", n_samples=120))
+
+    # To TIME LAG FROM ONE OUTPUT TO LOCAL MACHINE
+    # - Replace LSL input name
+    # - Uncomment line below
+    # lags_get_info(test_lags("INLET NAME HERE", n_samples=120))
 
